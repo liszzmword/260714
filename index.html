@@ -429,11 +429,11 @@
       const maxHistory = 6;
       const animationDuration = 1400;
       const animationInterval = 75;
+      const drawsApiUrl = "/api/draws";
 
       let history = loadHistory();
       let drawInProgress = false;
-      renderHistory();
-      renderEmptyState();
+      boot();
 
       drawBtn.addEventListener("click", drawLotto);
       clearBtn.addEventListener("click", () => {
@@ -465,6 +465,22 @@
         }
       }
 
+      async function boot() {
+        renderEmptyState();
+        renderHistory();
+
+        try {
+          const remoteHistory = await fetchHistory();
+          if (remoteHistory.length) {
+            history = remoteHistory;
+            persistHistory();
+            renderHistory();
+          }
+        } catch {
+          // Supabase 연동이 실패해도 로컬 추첨 기능은 유지한다.
+        }
+      }
+
       async function drawLotto() {
         if (drawInProgress) {
           return;
@@ -487,6 +503,14 @@
           window.clearInterval(timer);
 
           history = [ticket, ...history].slice(0, maxHistory);
+          try {
+            const savedTicket = await saveTicket(ticket);
+            if (savedTicket) {
+              history = [savedTicket, ...history.filter((entry) => entry.createdAt !== ticket.createdAt)].slice(0, maxHistory);
+            }
+          } catch {
+            // 원격 저장이 실패해도 로컬 표시와 기록은 유지한다.
+          }
           persistHistory();
           renderDraw(ticket);
           renderHistory();
@@ -546,6 +570,33 @@
 
       function sleep(ms) {
         return new Promise((resolve) => window.setTimeout(resolve, ms));
+      }
+
+      async function fetchHistory() {
+        const response = await fetch(`${drawsApiUrl}?limit=${maxHistory}`);
+        if (!response.ok) {
+          throw new Error(`Failed to load draws: ${response.status}`);
+        }
+
+        const payload = await response.json();
+        return Array.isArray(payload.draws) ? payload.draws : [];
+      }
+
+      async function saveTicket(ticket) {
+        const response = await fetch(drawsApiUrl, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(ticket),
+        });
+
+        if (!response.ok) {
+          throw new Error(`Failed to save draw: ${response.status}`);
+        }
+
+        const payload = await response.json();
+        return payload.draw ?? null;
       }
 
       function renderHistory() {
