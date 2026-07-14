@@ -1,0 +1,578 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>로또 추첨기</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        --primary: #0066cc;
+        --primary-focus: #0071e3;
+        --primary-on-dark: #2997ff;
+        --ink: #1d1d1f;
+        --body: #1d1d1f;
+        --body-on-dark: #ffffff;
+        --body-muted: #666666;
+        --hairline: #e0e0e0;
+        --canvas: #ffffff;
+        --canvas-parchment: #f5f5f7;
+        --surface-tile-1: #272729;
+        --surface-tile-2: #2a2a2c;
+        --surface-black: #000000;
+        --good: #86efac;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        min-height: 100vh;
+        font-family: "SF Pro Text", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        color: var(--body);
+        background: var(--canvas-parchment);
+      }
+
+      .shell {
+        width: 100%;
+        display: grid;
+        gap: 0;
+      }
+
+      .global-nav {
+        height: 44px;
+        background: var(--surface-black);
+        color: #ffffff;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 0 20px;
+        font-size: 12px;
+        letter-spacing: -0.12px;
+      }
+
+      .global-nav .brand {
+        font-weight: 600;
+      }
+
+      .hero,
+      .content {
+        width: min(1440px, 100%);
+        margin: 0 auto;
+      }
+
+      .hero {
+        display: grid;
+        gap: 12px;
+        justify-items: start;
+        padding: 80px 24px;
+        background: var(--canvas);
+        border-bottom: 1px solid var(--hairline);
+      }
+
+      .eyebrow {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 7px 13px;
+        border-radius: 999px;
+        background: rgba(0, 102, 204, 0.08);
+        color: var(--primary);
+        font-size: 12px;
+        font-weight: 600;
+        letter-spacing: -0.12px;
+      }
+
+      h1 {
+        margin: 0;
+        font-family: "SF Pro Display", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        font-size: clamp(40px, 5vw, 56px);
+        line-height: 1.07;
+        letter-spacing: -0.28px;
+        font-weight: 600;
+      }
+
+      .subtext {
+        margin: 0;
+        max-width: 62ch;
+        color: var(--body);
+        font-size: 17px;
+        line-height: 1.6;
+      }
+
+      .content {
+        display: grid;
+      }
+
+      .tile {
+        position: relative;
+        overflow: hidden;
+        border-radius: 0;
+        padding: 80px 24px;
+      }
+
+      .tile.light {
+        background: var(--canvas);
+        color: var(--body);
+        border-bottom: 1px solid var(--hairline);
+      }
+
+      .tile.parchment {
+        background: var(--canvas-parchment);
+        color: var(--body);
+        border-bottom: 1px solid var(--hairline);
+      }
+
+      .tile.dark {
+        background: var(--surface-tile-1);
+        color: var(--body-on-dark);
+      }
+
+      .topbar {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 20px;
+      }
+
+      .status {
+        display: grid;
+        gap: 4px;
+      }
+
+      .status strong {
+        font-size: 1rem;
+        font-weight: 800;
+        letter-spacing: -0.02em;
+      }
+
+      .status span {
+        color: var(--body-muted);
+        font-size: 0.92rem;
+      }
+
+      .controls {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+      }
+
+      button {
+        appearance: none;
+        border: 0;
+        border-radius: 9999px;
+        padding: 11px 22px;
+        color: #fff;
+        background: var(--primary);
+        font-family: "SF Pro Text", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        font-weight: 400;
+        font-size: 17px;
+        cursor: pointer;
+        transition: transform 0.18s ease, opacity 0.18s ease, background-color 0.18s ease;
+      }
+
+      button:hover {
+        background: var(--primary-focus);
+      }
+
+      button:active {
+        transform: scale(0.95);
+      }
+
+      button.secondary {
+        color: var(--primary);
+        background: transparent;
+        border: 1px solid var(--primary);
+      }
+
+      button:disabled {
+        opacity: 0.55;
+        cursor: not-allowed;
+        transform: none;
+      }
+
+      .numbers {
+        display: grid;
+        gap: 16px;
+      }
+
+      .ball-grid {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 14px;
+        align-items: center;
+      }
+
+      .ball-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 14px;
+        align-items: center;
+        min-height: 92px;
+      }
+
+      .ball {
+        width: 74px;
+        aspect-ratio: 1;
+        border-radius: 50%;
+        display: grid;
+        place-items: center;
+        font-size: 1.4rem;
+        font-weight: 600;
+        letter-spacing: -0.03em;
+        color: var(--ink);
+        background: var(--canvas);
+        border: 1px solid var(--hairline);
+        transform: translateY(0) scale(1);
+        animation: pop 0.42s ease both;
+      }
+
+      .ball.rolling {
+        animation:
+          roll 0.42s ease-in-out infinite alternate,
+          glow 1s ease-in-out infinite;
+      }
+
+      .ball.main {
+        background: var(--canvas);
+      }
+
+      .ball.bonus {
+        background: var(--canvas-parchment);
+      }
+
+      .ball.empty {
+        background: transparent;
+        color: var(--body-muted);
+        border: 1px dashed var(--hairline);
+        box-shadow: none;
+      }
+
+      .label {
+        color: var(--body-muted);
+        font-size: 14px;
+        font-weight: 600;
+        letter-spacing: -0.224px;
+        margin: 0 0 8px;
+      }
+
+      .history {
+        display: grid;
+        gap: 12px;
+        grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+        margin-top: 18px;
+      }
+
+      .ticket {
+        padding: 16px;
+        border-radius: 18px;
+        background: rgba(255, 255, 255, 0.92);
+        border: 1px solid var(--hairline);
+      }
+
+      .ticket strong {
+        display: block;
+        margin-bottom: 10px;
+        font-size: 1rem;
+        letter-spacing: -0.02em;
+        color: var(--body);
+      }
+
+      .ticket .mini {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+      }
+
+      .mini .chip {
+        width: 38px;
+        height: 38px;
+        border-radius: 50%;
+        display: grid;
+        place-items: center;
+        color: var(--ink);
+        background: var(--canvas);
+        border: 1px solid var(--hairline);
+        font-weight: 600;
+        font-size: 0.92rem;
+      }
+
+      .footer {
+        color: var(--body-muted);
+        font-size: 12px;
+        text-align: center;
+        padding: 24px;
+        background: var(--canvas-parchment);
+      }
+
+      @keyframes pop {
+        from {
+          opacity: 0;
+          transform: translateY(12px) scale(0.88);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0) scale(1);
+        }
+      }
+
+      @keyframes roll {
+        from {
+          transform: translateY(0) rotate(-10deg) scale(0.95);
+        }
+        to {
+          transform: translateY(-4px) rotate(10deg) scale(1.05);
+        }
+      }
+
+      @keyframes glow {
+        0%,
+        100% {
+          border-color: var(--hairline);
+        }
+        50% {
+          border-color: rgba(0, 102, 204, 0.5);
+        }
+      }
+
+      @media (max-width: 640px) {
+        .hero,
+        .tile {
+          padding-left: 16px;
+          padding-right: 16px;
+        }
+
+        .ball {
+          width: 62px;
+          font-size: 1.1rem;
+        }
+
+        button {
+          width: 100%;
+          justify-content: center;
+        }
+
+        .controls {
+          width: 100%;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main class="shell">
+      <header class="global-nav" aria-label="전역 내비게이션">
+        <div class="brand">Lotto</div>
+        <div>Design preview</div>
+      </header>
+
+      <section class="hero">
+        <div class="eyebrow">APPLE DESIGN ANALYSIS</div>
+        <h1>로또 추첨기</h1>
+        <p class="subtext">
+          디자인 문서의 규칙을 반영해, 파란 액션 버튼과 라이트·다크 타일 리듬으로 정리한 로또 추첨기입니다.
+          버튼과 카드의 역할을 낮추고, 번호와 결과가 더 선명하게 보이도록 맞췄습니다.
+        </p>
+      </section>
+
+      <section class="content" aria-label="로또 추첨기">
+        <div class="tile light">
+        <div class="topbar">
+          <div class="status">
+            <strong id="statusTitle">아직 추첨 전입니다</strong>
+            <span id="statusDetail">첫 추첨을 시작해 보세요.</span>
+          </div>
+          <div class="controls">
+            <button id="drawBtn">추첨하기</button>
+            <button id="clearBtn" class="secondary">기록 지우기</button>
+          </div>
+        </div>
+
+        <div style="height: 24px"></div>
+
+        <div class="numbers">
+          <div>
+            <p class="label">메인 번호 6개</p>
+            <div id="mainBalls" class="ball-row ball-grid" aria-live="polite"></div>
+          </div>
+
+          <div>
+            <p class="label">보너스 번호</p>
+            <div id="bonusBall" class="ball-row ball-grid" aria-live="polite"></div>
+          </div>
+        </div>
+        </div>
+
+        <div class="tile dark">
+        <div>
+          <p class="label">최근 추첨 기록</p>
+          <div id="history" class="history"></div>
+        </div>
+        </div>
+      </section>
+
+      <div class="footer">새로고침해도 최근 기록은 브라우저에 저장됩니다.</div>
+    </main>
+
+    <script>
+      const drawBtn = document.getElementById("drawBtn");
+      const clearBtn = document.getElementById("clearBtn");
+      const mainBalls = document.getElementById("mainBalls");
+      const bonusBall = document.getElementById("bonusBall");
+      const historyEl = document.getElementById("history");
+      const statusTitle = document.getElementById("statusTitle");
+      const statusDetail = document.getElementById("statusDetail");
+      const storageKey = "lotto-draw-history";
+      const maxHistory = 6;
+      const animationDuration = 1400;
+      const animationInterval = 75;
+
+      let history = loadHistory();
+      let drawInProgress = false;
+      renderHistory();
+      renderEmptyState();
+
+      drawBtn.addEventListener("click", drawLotto);
+      clearBtn.addEventListener("click", () => {
+        if (drawInProgress) {
+          return;
+        }
+        history = [];
+        persistHistory();
+        renderHistory();
+        renderEmptyState();
+        statusTitle.textContent = "기록을 지웠습니다";
+        statusDetail.textContent = "새로운 추첨을 시작할 수 있어요.";
+      });
+
+      function loadHistory() {
+        try {
+          const raw = localStorage.getItem(storageKey);
+          return raw ? JSON.parse(raw) : [];
+        } catch {
+          return [];
+        }
+      }
+
+      function persistHistory() {
+        try {
+          localStorage.setItem(storageKey, JSON.stringify(history));
+        } catch {
+          // 저장이 안 되는 환경에서는 추첨 기능만 계속 동작하게 둔다.
+        }
+      }
+
+      async function drawLotto() {
+        if (drawInProgress) {
+          return;
+        }
+
+        drawInProgress = true;
+        drawBtn.disabled = true;
+        clearBtn.disabled = true;
+        try {
+          const ticket = createTicket();
+          renderRollingState();
+          statusTitle.textContent = "번호가 섞이는 중입니다";
+          statusDetail.textContent = "추첨 볼이 돌아가고 있어요.";
+
+          const timer = window.setInterval(() => {
+            renderRollingFrame();
+          }, animationInterval);
+
+          await sleep(animationDuration);
+          window.clearInterval(timer);
+
+          history = [ticket, ...history].slice(0, maxHistory);
+          persistHistory();
+          renderDraw(ticket);
+          renderHistory();
+        } finally {
+          drawBtn.disabled = false;
+          clearBtn.disabled = false;
+          drawInProgress = false;
+        }
+      }
+
+      function renderEmptyState() {
+        mainBalls.innerHTML = Array.from({ length: 6 }, () => '<div class="ball empty">?</div>').join("");
+        bonusBall.innerHTML = '<div class="ball empty">?</div>';
+      }
+
+      function renderRollingState() {
+        mainBalls.innerHTML = Array.from({ length: 6 }, () => '<div class="ball rolling">?</div>').join("");
+        bonusBall.innerHTML = '<div class="ball bonus rolling">?</div>';
+      }
+
+      function renderRollingFrame() {
+        mainBalls.querySelectorAll(".ball").forEach((ball) => {
+          ball.textContent = randomNumber(45);
+        });
+        const bonus = bonusBall.querySelector(".ball");
+        if (bonus) {
+          bonus.textContent = randomNumber(45);
+        }
+      }
+
+      function renderDraw(ticket) {
+        mainBalls.innerHTML = ticket.main
+          .map((num, index) => `<div class="ball main" style="animation-delay:${index * 85}ms">${num}</div>`)
+          .join("");
+        bonusBall.innerHTML = `<div class="ball bonus">${ticket.bonus}</div>`;
+        statusTitle.textContent = "추첨이 완료되었습니다";
+        statusDetail.textContent = `메인 번호: ${ticket.main.join(", ")} / 보너스: ${ticket.bonus}`;
+      }
+
+      function createTicket() {
+        const pool = Array.from({ length: 45 }, (_, i) => i + 1);
+        const picks = [];
+
+        while (picks.length < 6) {
+          const idx = Math.floor(Math.random() * pool.length);
+          picks.push(pool.splice(idx, 1)[0]);
+        }
+
+        picks.sort((a, b) => a - b);
+        const bonus = pool[Math.floor(Math.random() * pool.length)];
+        return { main: picks, bonus, createdAt: new Date().toISOString() };
+      }
+
+      function randomNumber(max) {
+        return Math.floor(Math.random() * max) + 1;
+      }
+
+      function sleep(ms) {
+        return new Promise((resolve) => window.setTimeout(resolve, ms));
+      }
+
+      function renderHistory() {
+        if (!history.length) {
+          historyEl.innerHTML = '<div class="ticket"><strong>기록이 아직 없습니다</strong><span class="subtext">첫 추첨을 하면 최근 결과가 여기에 쌓입니다.</span></div>';
+          return;
+        }
+
+        historyEl.innerHTML = history
+          .map((ticket, index) => {
+            const date = new Date(ticket.createdAt);
+            const label = index === 0 ? "방금 전" : `${index + 1}번째 기록`;
+            return `
+              <article class="ticket">
+                <strong>${label}</strong>
+                <div class="mini">
+                  ${ticket.main.map((n) => `<span class="chip">${n}</span>`).join("")}
+                  <span class="chip" style="background:#86efac">${ticket.bonus}</span>
+                </div>
+                <div style="margin-top:10px;color:var(--muted);font-size:.84rem">
+                  ${date.toLocaleString("ko-KR")}
+                </div>
+              </article>
+            `;
+          })
+          .join("");
+      }
+    </script>
+  </body>
+</html>
