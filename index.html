@@ -498,6 +498,10 @@
         drawInProgress = true;
         drawBtn.disabled = true;
         clearBtn.disabled = true;
+        gtag("event", "draw_lotto", {
+          event_category: "engagement",
+          event_label: "추첨하기",
+        });
         try {
           const ticket = createTicket();
           renderRollingState();
